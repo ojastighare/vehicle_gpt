@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VehicleGPT — Natural Language Vehicle Intelligence Using On-Device AI</title>
+    <meta name="description" content="Offline-first automotive AI assistant for querying vehicle telemetry, diagnostic logs, and warning events using natural language.">
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Chart.js for telemetry time-series visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="brand-badge">
+                    <span class="brand-icon">⚡</span>
+                    <div>
+                        <h1 class="brand-title">VehicleGPT</h1>
+                        <span class="brand-subtitle">Natural Language Vehicle Intelligence • On-Device AI</span>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="status-indicator" id="system-status-indicator">
+                    <span class="status-dot green"></span>
+                    <span class="status-text" id="system-status-text">Local Engine: Connected</span>
+                </div>
+                <div class="status-indicator">
+                    <span class="status-dot blue" id="ai-status-dot"></span>
+                    <span class="status-text" id="ai-status-text">SLM: Deterministic Fallback</span>
+                </div>
+                <div class="badge-tag">Offline Edge Prototype</div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="dashboard-grid">
+            <!-- Top Status Cards -->
+            <section class="summary-cards-section" aria-label="Vehicle Summary">
+                <div class="card summary-card">
+                    <div class="card-icon teal">🔋</div>
+                    <div class="card-content">
+                        <span class="card-label">State of Charge</span>
+                        <div class="card-value-group">
+                            <span class="card-value" id="card-soc">--</span>
+                            <span class="card-unit">%</span>
+                        </div>
+                        <span class="card-subtext" id="card-soc-sub">BMS Active</span>
+                    </div>
+                </div>
+
+                <div class="card summary-card">
+                    <div class="card-icon cyan">🎯</div>
+                    <div class="card-content">
+                        <span class="card-label">Estimated Range</span>
+                        <div class="card-value-group">
+                            <span class="card-value" id="card-range">--</span>
+                            <span class="card-unit">km</span>
+                        </div>
+                        <span class="card-subtext">Dynamic VCU Model</span>
+                    </div>
+                </div>
+
+                <div class="card summary-card">
+                    <div class="card-icon amber">🌡️</div>
+                    <div class="card-content">
+                        <span class="card-label">Battery Temperature</span>
+                        <div class="card-value-group">
+                            <span class="card-value" id="card-temp">--</span>
+                            <span class="card-unit">°C</span>
+                        </div>
+                        <span class="card-subtext" id="card-temp-sub">Safety Limit: 45.0°C</span>
+                    </div>
+                </div>
+
+                <div class="card summary-card">
+                    <div class="card-icon blue">⚡</div>
+                    <div class="card-content">
+                        <span class="card-label">Average Efficiency</span>
+                        <div class="card-value-group">
+                            <span class="card-value" id="card-efficiency">--</span>
+                            <span class="card-unit">kWh/100 km</span>
+                        </div>
+                        <span class="card-subtext">Powertrain Inverter</span>
+                    </div>
+                </div>
+
+                <div class="card summary-card">
+                    <div class="card-icon red">⚠️</div>
+                    <div class="card-content">
+                        <span class="card-label">Diagnostic Alerts</span>
+                        <div class="card-value-group">
+                            <span class="card-value" id="card-warnings">0</span>
+                            <span class="card-unit">critical</span>
+                        </div>
+                        <span class="card-subtext" id="card-warnings-sub">DTC Logs Active</span>
+                    </div>
+                </div>
+
+                <div class="card summary-card">
+                    <div class="card-icon purple">🛡️</div>
+                    <div class="card-content">
+                        <span class="card-label">ADAS Disengagements</span>
+                        <div class="card-value-group">
+                            <span class="card-value" id="card-adas">--</span>
+                            <span class="card-unit">events</span>
+                        </div>
+                        <span class="card-subtext">Yesterday & Recent</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Query Section -->
+            <section class="card query-section" aria-label="Natural Language Query Console">
+                <div class="section-header">
+                    <h2>Natural Language Diagnostic Query</h2>
+                    <div class="slm-toggle-container">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-slm">
+                            <span class="slider round"></span>
+                        </label>
+                        <span class="toggle-label" id="toggle-slm-label">Request Local SLM (Ollama)</span>
+                    </div>
+                </div>
+
+                <form id="query-form" class="query-input-bar">
+                    <div class="input-wrapper">
+                        <span class="search-icon">🔍</span>
+                        <input
+                            type="text"
+                            id="query-input"
+                            placeholder="Ask a diagnostic question (e.g., 'What happened before the battery overheating warning?')..."
+                            autocomplete="off"
+                            required
+                        >
+                        <button type="submit" id="btn-submit-query" class="btn btn-primary">
+                            <span id="btn-text">Query Vehicle</span>
+                            <span id="btn-spinner" class="spinner hidden"></span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Example Chips -->
+                <div class="example-chips-wrapper">
+                    <span class="chips-label">Case Study Inquiries:</span>
+                    <div class="example-chips">
+                        <button type="button" class="chip" data-query="Show all ADAS disengagement events from yesterday.">
+                            ADAS Events Yesterday
+                        </button>
+                        <button type="button" class="chip" data-query="What happened before the battery overheating warning?">
+                            Battery Overheating Precedents
+                        </button>
+                        <button type="button" class="chip" data-query="Why has my driving range reduced over the last two weeks?">
+                            Range Reduction (2 Weeks)
+                        </button>
+                        <button type="button" class="chip" data-query="When did energy consumption increase the most?">
+                            Consumption Surges
+                        </button>
+                        <button type="button" class="chip" data-query="Compare energy consumption between city and highway driving.">
+                            City vs Highway Consumption
+                        </button>
+                        <button type="button" class="chip" data-query="Show recent diagnostic warnings grouped by severity.">
+                            Diagnostic Warnings Grouped
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section: Answer + Supporting Evidence -->
+            <section class="results-container" id="results-container">
+                <!-- AI Explanation Card -->
+                <div class="card answer-card" id="answer-card">
+                    <div class="answer-card-header">
+                        <div class="answer-title-group">
+                            <span class="answer-badge">VehicleGPT Intelligence Response</span>
+                            <span class="engine-badge" id="response-engine-badge">Engine: Deterministic</span>
+                        </div>
+                        <div class="latency-metrics" id="latency-metrics">
+                            <span class="latency-pill" title="Database retrieval latency">Retrieval: <strong id="retrieval-time">0 ms</strong></span>
+                            <span class="latency-pill" title="Deterministic statistical calculation latency">Analytics: <strong id="analytics-time">0 ms</strong></span>
+                            <span class="latency-pill" title="Total response latency">Total: <strong id="total-time">0 ms</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="answer-content" id="answer-text">
+                        Please enter a diagnostic question above or select an example query to analyze vehicle telemetry and events.
+                    </div>
+
+                    <div class="disclaimer-banner" id="disclaimer-banner">
+                        <span>ℹ️ Deterministic Analysis: Grounded exclusively in verified SQLite historical telemetry. No ECU commands are issued.</span>
+                    </div>
+                </div>
+
+                <!-- Evidence & Provenance Table -->
+                <div class="card evidence-card" id="evidence-card">
+                    <div class="section-header">
+                        <h3>Supporting Evidence & Historical Records</h3>
+                        <span class="evidence-count-badge" id="evidence-count">0 Records</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="evidence-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp (UTC)</th>
+                                    <th>Type</th>
+                                    <th>Signal / Parameter</th>
+                                    <th>Value</th>
+                                    <th>Unit</th>
+                                    <th>Severity</th>
+                                    <th>Details & Source Subsystem</th>
+                                </tr>
+                            </thead>
+                            <tbody id="evidence-table-body">
+                                <tr>
+                                    <td colspan="7" class="empty-table-msg">Run a query to inspect ground-truth evidence records.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Visual Analytics: Charts & Timeline -->
+            <section class="analytics-split-grid">
+                <!-- Historical Telemetry Chart -->
+                <div class="card chart-card">
+                    <div class="chart-header">
+                        <h3>Historical Telemetry Trends</h3>
+                        <div class="chart-controls">
+                            <button type="button" class="chart-btn active" data-signal="battery_temperature">Battery Temp</button>
+                            <button type="button" class="chart-btn" data-signal="energy_consumption">Consumption</button>
+                            <button type="button" class="chart-btn" data-signal="driving_range">Driving Range</button>
+                            <button type="button" class="chart-btn" data-signal="vehicle_speed">Speed</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="telemetryChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Event Timeline Card -->
+                <div class="card timeline-card">
+                    <div class="section-header">
+                        <h3>Vehicle Event Timeline</h3>
+                        <span class="live-pulse-badge">Historical Stream</span>
+                    </div>
+                    <div class="timeline-list" id="timeline-list">
+                        <div class="loading-placeholder">Loading recorded vehicle events...</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer / Edge Specifications -->
+        <footer class="app-footer">
+            <div class="footer-left">
+                <span>Tata Elxsi Teliport Season 4 • Case Study 5 (VehicleGPT)</span>
+                <span class="divider">|</span>
+                <span>Edge Target: ~2GB RAM, 2 ARM A5X Cores</span>
+                <span class="divider">|</span>
+                <span id="footer-db-status">DB: Initializing</span>
+            </div>
+            <div class="footer-right">
+                <button type="button" id="btn-reset-demo" class="btn btn-secondary btn-sm" title="Reset and reseed 3-week synthetic baseline">
+                    ↺ Reset Demo Dataset
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
